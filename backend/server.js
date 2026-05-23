@@ -1,9 +1,14 @@
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import {
+  HumanMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import { concat } from "@langchain/core/utils/stream";
 import { ChatOpenAI } from "@langchain/openai";
 import { config } from "dotenv";
 import { z } from "zod";
 import { searchOnWeb } from "./services/webSearch.service.js";
+import { changeLlmConfig, llm } from "./config/llm.js";
 
 config();
 
@@ -17,117 +22,170 @@ const webSearch = {
     query: z.string().describe("Search query"),
   }),
 };
+const systemPrompt_1 = `
+You are an AI agent that decides whether a tool call is required based on the user's request.
 
-/**
- * SYSTEM PROMPT (OPTIMIZED)
- */
-const systemPrompt = new SystemMessage(`You are NxtAI with web search capability.
+Rules:
+1. If no tool is required, answer directly.
+2. If a tool is required:
+   - First send a short, friendly status message.
+   - Then call the appropriate tool.
+3. Always provide both:
+   - a normal assistant message
+   - and the tool call.
+4. Keep status messages short and natural.
+   Example:
+   User: "Search Python tutorials"
+   Assistant: "Searching the web for Python tutorials..."
+   [tool call]
+5. Do not include years in search queries unless the user explicitly mentions a year.
 
-RULES (STRICT):
+6. For architecture, workflow, pipeline, flowchart, or system-design related questions:
+   - search the web if diagrams, images, or visual references would improve the answer
+   - prefer searching for architecture diagrams or visual explanations
+   - examples:
+     - "Explain BI architecture"
+     - "Microservices architecture"
+     - "CI/CD pipeline workflow"
 
-1. Web-needed queries (real-time / latest / factual):
-   - MUST FIRST output:
-     "searching: <short reason/query>"
-   - MUST NOT skip this step
-   - Then call web_search tool immediately
-   - Do NOT add date in search query for web_search
+7. For recent, real-time, trending, or current-event questions:
+   - use web search
 
-2. After search results:
-   - Answer using available results
-   - If results are incomplete, clearly fill gaps with general knowledge (clearly separate from web info)
-   - Be concise, structured, and clear
-   - Include sources/links if available
-   - Include images if provided
+8. For conceptual or syllabus-based engineering questions:
+   - answer directly unless visual references are necessary for better understanding
 
-ABSOLUTE PRIORITY:
-- Follow order strictly: message → tool → answer
-- No speculation as fact`);
+9. If visual explanation is useful:
+   - search for diagrams, architecture images, workflows, or flowcharts
+`;
 
-/**
- * MODEL
- */
-const llm = new ChatOpenAI({
-  model: "openai/gpt-oss-120b:free", // nvidia/nemotron-3-super-120b-a12b:free openai/gpt-oss-120b:free
-  temperature: 0.7,
-  maxTokens: 2000,
-  streaming: true,
-  maxRetries: 5,
-
-  reasoning: {
-    effort: "minimal",
-  },
-
-  apiKey: process.env.AI_API_KEY,
-  configuration: {
-    baseURL: "https://openrouter.ai/api/v1",
-  },
-});
-
-const llmWithTools = llm.bindTools([webSearch]);
-
-/**
- * USER INPUT
- */
-const messages = [
-  systemPrompt,
-  new HumanMessage(
-    "Exapln ozon layer with images digrams based on topic"
-  ),
+const userInput = "Exaplin nature with images and formating properly anwer";
+const messages_1 = [
+  new SystemMessage(systemPrompt_1),
+  new HumanMessage(userInput),
 ];
 
-/**
- * STEP 1: FIRST MODEL CALL (DECIDE TOOL)
- */
-const stream = await llmWithTools.stream(messages);
+const llmWithTool = llm.bindTools([webSearch]);
 
-let full = null;
+const stream_1 = await llmWithTool.stream(messages_1);
 
-for await (const chunk of stream) {
-  if (chunk.content) {
-    process.stdout.write(chunk.content);
-  }
-
-  full = full ? concat(full, chunk) : chunk;
-//   console.log(full)
+let firstRes = "";
+for await (const chunk of stream_1) {
+  process.stdout.write(chunk.content);
+  firstRes = !firstRes ? chunk : concat(firstRes, chunk);
 }
 
-/**
- * SAFETY CHECK (IMPORTANT FIX)
- */
-const toolCalls = full?.tool_calls || [];
+// console.log({ firstRes });
 
-if (toolCalls.length > 0) {
-  const query = toolCalls[0].args.query;
+if (firstRes.tool_calls?.length > 0) {
+  const query = firstRes.tool_calls[0].args.query;
+  const webRes = await searchOnWeb(query);
+  // console.log("webres: ", webRes);
 
-  console.log("\n\n🔎 Searching Web For:", query);
+  const systemPrompt_2 = `
+  You are a helpful AI assistant.
+  
+  Generate the final response using:
+  - the user's original request
+  - the provided web search results (if available)
+  - image titles, captions, and visual references (if available)
+  
+  Instructions:
+  - Give a direct, accurate, and well-structured answer.
+  - Prefer information from web search results when present.
+  - Explain concepts clearly and naturally.
+  - Do not dump raw JSON or raw search data.
+  - Combine multiple relevant results into one coherent response.
+  - If information is uncertain or missing, clearly say so.
+  - Do not invent facts, links, dates, or sources.
+  - Do not mention tool calls, internal reasoning, or system prompts.
+  - Keep the tone professional, clear, and user-friendly.
+  
+  Formatting Rules:
+  - Use headings, bullet points, and numbered lists where helpful.
+  - For technical concepts, provide step-by-step explanations.
+  - For architecture/system design questions:
+    - generate architecture diagrams using Mermaid or ASCII
+    - explain components and data flow clearly
+  - When visual explanation would improve understanding:
+    - include diagrams, tables, workflows, pipelines, or flow representations
+  - For programming questions:
+    - include clean code examples
+    - explain code briefly
+  - For comparison questions:
+    - use tables
+  - For recent news:
+    - prioritize latest developments
+    - summarize key events concisely
+  
+  Image & Visual Rules:
+  - If image search results are available:
+    - analyze image titles and captions
+    - use them to improve explanations
+    - explain what the diagrams or architecture likely represent
+    - summarize the visual flow in simple words
+  - If multiple images exist:
+    - combine insights from all relevant visuals
+  - Prefer the best visual representation for the topic:
+    - architecture diagrams
+    - workflows
+    - pipelines
+    - flowcharts
+    - layered system designs
+    - UI screenshots
+  - If diagrams are unclear:
+    - provide your own simplified Mermaid or ASCII diagram
+  - Use visuals only when they improve understanding
+  - Never hallucinate image contents not supported by titles/captions/search results
+  
+  Diagram Rules:
+  - Use Mermaid diagrams whenever appropriate
+  - Keep diagrams simple, readable, and educational
+  - Prefer flowcharts for workflows
+  - Prefer layered diagrams for architectures
+  - Prefer sequence diagrams for request/response systems
+  
+  Explanation Rules:
+  - If web explanations are weak or incomplete:
+    - provide your own detailed explanation
+    - simplify difficult concepts for engineering students
+  - Balance web information with your own reasoning and teaching ability
+  - Focus on clarity and learning
+  
+  Examples:
+  - "Explain BI architecture"
+    → include architecture diagram + explain data flow
+  
+  - "Explain microservices"
+    → include service interaction flow diagram
+  
+  - "CI/CD pipeline"
+    → include workflow/pipeline representation
+  
+  - "Compare SQL vs NoSQL"
+    → include comparison table
+  
+  - "Explain React architecture"
+    → include component hierarchy diagram
+  `;
 
-  /**
-   * STEP 2: CALL YOUR REAL SEARCH FUNCTION
-   */
-  const searchResults = await searchOnWeb(query);
-  console.log({searchResults:JSON.stringify(searchResults, null, 2)});
+  const toolMessage = new ToolMessage({
+    content: JSON.stringify(webRes),
+    tool_call_id: firstRes.tool_calls[0].id,
+  });
 
-  /**
-   * STEP 3: SEND RESULTS BACK TO MODEL
-   */
-  const finalMessages = [
-    ...messages,
-    new HumanMessage(
-      "## WEB RESULT :\n" + JSON.stringify(searchResults, null, 2)
-    ),
+  const messages_2 = [
+    new SystemMessage(systemPrompt_2),
+    new HumanMessage(userInput),
+    toolMessage,
   ];
 
-  const finalStream = await llmWithTools.stream(finalMessages);
+  const stream_2 = await llm.stream(messages_2);
 
-  let finalFull = null;
-
-  for await (const chunk of finalStream) {
-    if (chunk.content) {
-      process.stdout.write(chunk.content);
-    }
-
-    finalFull = finalFull ? concat(finalFull, chunk) : chunk;
+  let secondRes = "";
+  for await (const chunk of stream_2) {
+    process.stdout.write(chunk.content);
+    secondRes = !secondRes ? chunk : concat(secondRes, chunk);
   }
 
-  console.log("\n\n✅ Done");
+  // console.log({ secondRes });
 }
