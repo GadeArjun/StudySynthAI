@@ -1,18 +1,3 @@
-// ddg-mixed-rich-search.js
-// Node.js 18+
-//
-// INSTALL:
-// npm install node-fetch cheerio p-limit
-//
-// FEATURES:
-// - DuckDuckGo text search
-// - DuckDuckGo image search
-// - Rich page extraction
-// - Fast concurrent enrichment
-// - Reusable modular exports
-// - Optimized performance
-// - Clean architecture
-
 import fetch from "node-fetch";
 import { load } from "cheerio";
 import pLimit from "p-limit";
@@ -562,13 +547,18 @@ export function setConfig(newConfig = {}) {
   Object.assign(CONFIG, newConfig);
 }
 
+export const searchOnWeb = async(que)=>{
+   const result = await ddgMixedRichSearch(que);
+   return result;
+}
+
 /* =========================================================
  * CLI SUPPORT
  * =======================================================*/
 
 async function runCLI() {
   try {
-    const query = `First Year Engineering (FE) Engineering mathematics 1 notes`;
+    const query = `Ozone Layer`;
 
     const results = await ddgMixedRichSearch(query);
 
@@ -579,4 +569,4 @@ async function runCLI() {
   }
 }
 
-runCLI();
+// runCLI();
