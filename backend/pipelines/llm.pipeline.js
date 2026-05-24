@@ -1,6 +1,6 @@
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
+import {  END, START, StateGraph } from "@langchain/langgraph";
 import { questionsNode } from "../nodes/questions.node.js";
-import { answerNode } from "../nodes/answers.node.js";
+import { researchAnswersNode } from "../nodes/research_answers.node.js";
 import z from "zod";
 
 const State = z.object({
@@ -13,13 +13,13 @@ const graph = new StateGraph(State);
 
 graph.addNode("questionsNode", questionsNode);
 
-graph.addNode("answerNode", answerNode);
+graph.addNode("researchAnswersNode", researchAnswersNode);
 
 graph.addEdge(START, "questionsNode");
 
-graph.addEdge("questionsNode", "answerNode");
+graph.addEdge("questionsNode", "researchAnswersNode");
 
-graph.addEdge("answerNode", END);
+graph.addEdge("researchAnswersNode", END);
 
 export const app = graph.compile();
 

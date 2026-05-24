@@ -3,14 +3,9 @@ import { questionsLLM } from "../schemas/questions.schema.js";
 
 export const questionsNode = async (state) => {
   console.log("🔥 QUESTIONS NODE HIT");
-  console.log("STATE RECEIVED:", state);
   if (!state.userInput) {
     return {};
   }
-  // else{
-  //     console.log(state.userInput)
-  //     return
-  // }
   const messages = [
     new SystemMessage(`You are an AI agent that extracts questions from the user's request.
 
@@ -40,8 +35,19 @@ Field meanings:
 - query → a clean and optimized query for web search`),
     new HumanMessage(state.userInput),
   ];
+
+
   const res = await questionsLLM.invoke(messages);
-  console.log({ extractedQuestions: res });
+  console.log(
+    JSON.stringify(
+      {
+        extractedQuestions: res,
+      },
+      null,
+      2
+    )
+  );
+
   return {
     extractedQuestions: res,
   };

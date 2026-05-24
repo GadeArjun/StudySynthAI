@@ -187,6 +187,7 @@ import { app } from "./pipelines/llm.pipeline.js";
 
 
 
-const res = await app.invoke({userInput:`Explain nature with images and formating properly answer, what is ozone layer, javascript array defination and image for there methods`})
+const res = await app.invoke({userInput:`
+    Explain with diagram One-to-all broadcast on an eight-node ring with recursive doubling technique. [5]`})
 
 console.log(res)
