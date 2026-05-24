@@ -142,18 +142,19 @@ export const researchAnswersNode = async (state) => {
       )
     );
 
-    const pdfPath = path.join(
-      process.cwd(),
-      "generated-answer.pdf"
-    );
-  
-    await generateEducationalPDF(
-      webResult,
-      pdfPath
-    );
-
     webResult.push({ que: result, webResult: res, answer: llmRes.content });
   }
+
+
+  const pdfPath = path.join(
+    process.cwd(),
+    "generated-answer.pdf"
+  );
+
+  await generateEducationalPDF(
+    webResult,
+    pdfPath
+  );
 
   return {
     finalAnswer: webResult,
