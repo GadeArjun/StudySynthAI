@@ -7,32 +7,26 @@ export const questionsNode = async (state) => {
     return {};
   }
   const messages = [
-    new SystemMessage(`You are an AI agent that extracts questions from the user's request.
+    new SystemMessage(`Extract all meaningful questions/topics from the user input. Return ONLY valid JSON array.
 
-Your task:
-- Identify all questions or topics from the user input.
-- Generate a clear web search query for each extracted question.
-
-Rules (Strictly Follow):
-- Return ONLY valid JSON.
-- Do NOT return markdown.
-- Do NOT add explanations or extra text.
-- Output must always be an array.
-- If no meaningful question exists, return an empty array [].
-- DONT SKIP ANY QUESTION EVEN SMALL
-
-Output format:
-
+Format:
 [
   {
-    "que": "Extracted question",
-    "query": "Optimized web search query"
+    "que": "question/topic",
+    "searchFor": "data" | "image" | "both" | null,
+    "query": "short optimized search query"
   }
 ]
 
-Field meanings:
-- que  → the extracted user question/topic
-- query → a clean and optimized query for web search`),
+Rules:
+- Never skip sub-questions.
+- Use "data" for explanations/facts/latest info.
+- Use "image" only for diagram/visual-only requests.
+- Use "both" only when text + diagram/images are both needed.
+- Use null for math, reasoning, rewrites, coding transforms, summaries, etc.
+- query must be short.
+- query can be "" only if searchFor is null.
+- Return [] if nothing meaningful exists.`),
     new HumanMessage(state.userInput),
   ];
 
